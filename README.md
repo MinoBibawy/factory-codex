@@ -5,51 +5,73 @@ Describe a problem in your project chat and ask Factory to work on it. Factory u
 ## How Factory works
 
 ```text
-Project chat: describe the problem, then ask /factory to fix it
-    |
-    v
-Queue the job and open the local dashboard
-    |
-    v
-Intake agent: check the evidence and agree on a testable outcome
-    |
-    +-- Missing information? --> Ask in chat, then resume the job
-    |
-    +-- Design decision? ------> Draft a spec and review it with EGM
-    |
-    v
-Implement in the job's worktree
-    |
-    v
-Run project tests and independent code, security, and quality reviews
-    |
-    +-- Finding or failed check? --> Fix it and repeat the checks
-    |
-    v
-For bug fixes, the intake agent retries the original failing case
-    |
-    +-- Still fails? --> Return to development
-    |
-    +-- Local work complete? --> Record the result in the dashboard
-    |
-    v
-Remote delivery requested
-    |
-    +-- Prepare a local PR draft if requested
-    v
-Approve push in chat --> Push the approved commit --> Check CI
-    |
-    +-- CI fails? --> Fix, retest, and request approval for a new push
-    |
-    v
-If a merge was requested: approve it separately, then verify the merge
++----------------------------------+
+| Project chat                     |
+| Describe the issue or paste the  |
+| analysis, then ask /factory.     |
++----------------------------------+
+                 |
+                 v
++----------------------------------+       +-------------------------+
+| Intake agent                     |------>| Waiting for your input  |
+| Check the evidence and define    |       | Answer in project chat. |
+| what a successful fix looks like.|<------| Resume the same job.    |
++----------------------------------+       +-------------------------+
+                 |
+                 v
++----------------------------------+       +-------------------------+
+| Does the change need a design    |--yes->| Elephant Goldfish       |
+| decision?                        |       | Draft and independently |
++----------------------------------+       | review the spec.        |
+                 | no                      +-------------------------+
+                 |                                      |
+                 v                                      |
++----------------------------------+                    |
+| Developer                        |<-------------------+
+| Implement in the job's worktree. |<-------------------+
++----------------------------------+                    |
+                 |                                      |
+                 v                                      |
++----------------------------------+                    |
+| Tests and independent review     |--- findings --------+
+| Run project tests. Review code,  |                    |
+| security, quality and affected   |                    |
+| UI, UX or backend behavior.      |                    |
++----------------------------------+                    |
+                 | pass                                 |
+                 v                                      |
++----------------------------------+                    |
+| For bug fixes: intake agent      |--- still fails -----+
+| Retry the original failing case. |
++----------------------------------+
+                 | verified
+                 v
++----------------------------------+       +-------------------------+
+| What did you ask Factory to do?  |------>| Local fix               |
++----------------------------------+       | Mark OK on dashboard.   |
+                 |                         +-------------------------+
+                 | publish a PR
+                 v
++----------------+    +----------------+    +------------------------+
+| Draft PR       |--->| You approve    |--->| Push the exact commit  |
+| Show evidence  |    | the push.      |    | and check CI.          |
+| and merge risk.|    +----------------+    +------------------------+
++----------------+                                      |
+                                                        | CI passes
+                                                        v
+                                           +------------------------+
+                                           | You approve the merge. |
+                                           | Factory verifies it.   |
+                                           +------------------------+
 ```
+
+Open the dashboard at any point to see active jobs, requests for feedback, results, pull requests, and artifacts.
 
 Jobs waiting for feedback keep their evidence while other independent jobs proceed. A design-only request ends with the reviewed proposal.
 
 ## Installation
 
-You need Codex with plugin support and native agents, Git, and Python 3 with `fcntl`. Factory has been tested on macOS arm64. The queue commands have been tested with Python 3.9.6 and 3.14.7. On Linux or WSL, verify the queue and Git worktrees before adoption. Native Windows would require different process locking.
+You need Codex with plugin support and native agents, Git, and Python 3 with `fcntl`. The queue commands have been tested with Python 3.9.6 and 3.14.7. On Linux or WSL, verify the queue and Git worktrees before adoption. Native Windows would require different process locking.
 
 Clone this repository or extract the release package to a folder you intend to keep. From the folder containing this README, run:
 
