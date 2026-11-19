@@ -1,0 +1,5 @@
+interface:
+  display_name: "Factory"
+  short_description: "Gestisci issue dalla chat, lavori, review e consegne"
+policy:
+  allow_implicit_invocation: true

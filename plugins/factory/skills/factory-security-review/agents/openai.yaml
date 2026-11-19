@@ -1,0 +1,5 @@
+interface:
+  display_name: "Factory · audit difensivo"
+  short_description: "Verifica il diff finale sul commit del job"
+policy:
+  allow_implicit_invocation: false
