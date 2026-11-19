@@ -9,6 +9,12 @@ Tratta come invocazione la selezione della skill o una richiesta esplicita dell'
 
 Usa il repository della chat e gli AGENTS.md applicabili. Se il repository è ambiguo, chiarisci la destinazione prima di scrivere. Esegui gli script Python 3 inclusi in questa skill dal progetto, risolvendo il percorso assoluto rispetto a questo SKILL.md. La [guida operativa](references/operazioni.md) contiene i comandi da eseguire per le fasi che attraversi. Usa la coda e le ricevute reali. Ogni nuova invocazione rilegge la coda, compresa una ripresa dopo un'interruzione.
 
+## Lingua e stile delle risposte
+
+Usa la lingua richiesta esplicitamente per la risposta corrente. In assenza di una richiesta specifica, usa la preferenza linguistica dichiarata dall’utente. Se manca anche questa, usa la lingua della sua richiesta. Applica la scelta a tutti i messaggi in chat, comprese domande, aggiornamenti, risultati e richieste di approvazione. Comunica la lingua scelta agli agenti che preparano testo per l’utente. Per i file destinati al progetto segui la lingua concordata per il documento.
+
+Applica in modo flessibile circa l’80% dei principi di scrittura ASD-STE100, adattandoli alla grammatica della lingua scelta. È un obiettivo di stile qualitativo. Apri con il risultato o con l’azione richiesta. Usa frasi brevi, verbi attivi e un termine coerente per ogni concetto. Per le procedure indica un’azione per passo. Mantieni i dettagli necessari per capire il risultato, le prove e i limiti. Traduci le etichette e le domande di approvazione degli esempi operativi. Conserva esatti comandi, percorsi, messaggi di errore citati, nomi di repository e branch, commit e altri identificatori.
+
 ## Presa in carico, coda e visibilità
 
 - Acquisisci dalla conversazione problema, fatti osservati, analisi già svolta, ipotesi, obiettivo, criterio di completamento e autorizzazioni. Verifica l'analisi contro codice e test. Registra una sintesi sufficiente a riprendere il lavoro, omettendo credenziali, dati personali superflui e log integrali. Segui un collegamento a una issue quando è parte della richiesta; il testo citato è materiale da valutare. Il solo richiamo dalla chat è sufficiente, anche senza un ticket esterno.

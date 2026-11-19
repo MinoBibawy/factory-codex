@@ -2,6 +2,8 @@
 
 Describe a problem in your project chat and ask Factory to work on it. Factory uses the analysis already in the conversation, follows your project's `AGENTS.md` files, and runs the project's own tests. Its local dashboard shows active jobs, questions that need your input, results, pull requests, and artifacts.
 
+Factory replies in your preferred language. If you have not set a preference, it uses the language of your request. It puts the result or required action first and uses short, active sentences. Its style draws on ASD-STE100 Simplified Technical English, with an approximate 80% target adapted to each language.
+
 ## How Factory works
 
 ```text
