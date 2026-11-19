@@ -132,6 +132,19 @@ def artifact_links(directory, job_id):
     return '<h4>Artefatti</h4><ul>' + "".join(items) + '</ul>' if items else ""
 
 
+def proposal_status(job):
+    proof = job.get("proposal") or {}
+    if not proof and not job.get("proposal_requested"):
+        return ""
+    label = "Proposta da verificare"
+    if proof.get("case") and proof.get("control"):
+        if proof.get("status") == "fixture":
+            label = "Verificata su copia temporanea"
+        elif proof.get("status") == "commit" and proof.get("sha"):
+            label = f"Verificata sul commit {proof['sha']}"
+    return f'<p class="note">{text(label)}</p>'
+
+
 def job_card(job, label, directory):
     delivery = job.get("delivery") or {}
     pr = job.get("pull_request") or {}
@@ -149,8 +162,15 @@ def job_card(job, label, directory):
     intake = job.get("intake_reviews", [])
     if stage == "design" and job.get("require_intake") and (not intake or intake[-1]["decision"] != "accept"):
         label = "Presa in carico"
+    decisions = job.get("decisions", [])
     if stage == "feedback" and delivery.get("status") == "waiting":
         label = {"push": "Approvazione push", "merge": "Approvazione merge"}.get(delivery.get("action"), label)
+    elif stage == "feedback" and job.get("decision_wait"):
+        current = next((d for d in reversed(decisions) if d["ref"] == job["decision_wait"]), None)
+        if current:
+            label = "Risposta ricevuta" if current.get("answer") else "Decisione richiesta"
+            if not current.get("answer"):
+                note = current["question"]
     fields = [
         ("Dipende da", ", ".join(job.get("after", []))),
         ("Repository", delivery.get("repo")), ("Branch", job.get("branch")),
@@ -160,6 +180,11 @@ def job_card(job, label, directory):
         ("Intervallo tra primo e ultimo evento", elapsed(events)),
         ("Aggiornamento", job.get("updated")),
     ]
+    proposal = job.get("proposal") or {}
+    fields.extend([("Prova del caso originale", proposal.get("case")),
+                   ("Prova di controllo", proposal.get("control")), ("Limiti della prova", proposal.get("reason"))])
+    for decision in decisions:
+        fields.extend([("Domanda", decision["question"]), ("Risposta", decision.get("answer"))])
     ci = job.get("ci")
     if ci:
         ci_label = {"awaiting_push": "Verifica del push", "pending": "CI in corso", "pass": "CI superata",
@@ -194,7 +219,7 @@ def job_card(job, label, directory):
         f'<article class="card {text(stage)}">'
         f'<div class="card-head"><span class="ticket">#{text(job["id"])}</span>'
         f'<span class="badge">{text(label)}</span></div>'
-        f'<h3>{text(job["title"])}</h3>{pr_link}{message}{details}</article>'
+        f'<h3>{text(job["title"])}</h3>{pr_link}{proposal_status(job)}{message}{details}</article>'
     )
 
 

@@ -102,13 +102,19 @@ Factory interprets `/factory` in the message. If your client does not select the
 | Request | What Factory does |
 | --- | --- |
 | Analyze or diagnose | Factory Analysis checks the code, versioned documentation and available project decisions. It returns the diagnosis, evidence and limits in the dashboard. |
-| Find a solution | Adds a recommended change, meaningful alternatives and a verification case. To implement the proposal later, ask Factory to fix the issue. The developer reuses the analysis. |
+| Find a solution | Adds a recommended change, meaningful alternatives and a verification case. To implement the proposal later, ask Factory to fix the issue. The developer rechecks the sources that changed before reusing the analysis. |
 | Bug fix or regression | Uses Poteto for intake and diagnosis and Ponytail during implementation. Runs project tests and independent reviews. For a small change, focuses frontend and backend checks on the affected layers. |
 | Change with open design questions | Uses the relevant Compound Engineering stages. When a change needs a decision about behavior across components, public contracts, or persistent data, Elephant Goldfish (EGM) reviewers check the specification before implementation. |
 | Pull request draft | Writes a local summary with before-and-after evidence, merge risk, and reversibility. The draft is available from the dashboard. |
 | Remote delivery | Shows the repository, source and target branches, and exact commit before asking for approval. GitHub CI requires an authenticated `gh` client with read access. Other providers need an equivalent source of check results. |
 
 For example, use `/factory analyze` for a diagnosis, `/factory find a solution` for a proposal, or `/factory fix it` to authorize local implementation. The intake agent can consult your project’s Obsidian vault when configured and accessible. Independent specialists can check code, contracts and project decisions in parallel. For high-risk conclusions a reviewer challenges the evidence before handoff.
+
+### What the dashboard tells you about a proposal
+
+A pending proposal includes the reason the trial could not run. A fixture result means the analyst tried the original failing case and a neighboring control in a disposable copy. A commit result identifies the exact clean revision tested. You can receive a useful proposal at any of these levels.
+
+If you later ask Factory to implement the proposal, it compares the report and the cited project files with the implementation worktree. Changed evidence needs a fresh review. External decisions, such as an Obsidian note outside the project or an approved contract in Confluence, need an explicit check. If a product choice is still open, the dashboard keeps the question and its answer with the job, including after a chat restart. Answering it does not authorize a push or merge.
 
 ## Data and permissions
 

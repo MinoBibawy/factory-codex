@@ -45,6 +45,12 @@ def reconcile(job, economy_model=None):
     receipt = job.get('quality', {})
     result = dict(id=job['id'], stage=stage, action=stage, round=receipt.get('round'),
                   sha=receipt.get('sha'), plan=receipt.get('plan'), completed=[], missing=[], assignments=[])
+    if job.get('decisions'):
+        decision = job['decisions'][-1]
+        result['decision'] = decision
+        if stage == 'feedback' and job.get('decision_wait') == decision['ref']:
+            return {**result, 'action': 'resume_decision' if 'answer' in decision else 'await_answer',
+                    'reason': job['note']}
     if stage == 'checks':
         try:
             with quality.checks_lock_path(job['id']).open('rb') as lock:
@@ -87,8 +93,19 @@ def main():
     parser.add_argument('--economy-model', metavar='MODELLO',
                         help='Modello economico effettivamente disponibile per la delega nativa')
     args = parser.parse_args()
-    with factory.locked() as (_, data):
-        result = reconcile(data['jobs'][args.id], args.economy_model)
+    with factory.locked() as (directory, data):
+        jobs = data['jobs']
+        job = jobs[args.id]
+        result = reconcile(job, args.economy_model)
+        if result['action'] == 'design' and job.get('after') and not job.get('design_only'):
+            from proposal import parents_to_check
+            try:
+                parents = parents_to_check(directory, jobs, job)
+                pending = {key: changes for key, changes in parents.items() if changes}
+                if pending:
+                    result.update(action='recheck_proposal', parents=pending)
+            except (OSError, ValueError) as error:
+                result.update(action='blocked', reason=str(error))
     print(json.dumps(result, ensure_ascii=False))
 
 

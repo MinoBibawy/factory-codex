@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import uuid
 import webbrowser
 
 import board
@@ -100,11 +101,14 @@ def capacity(jobs, job, stage, previous):
             raise ValueError(f'{limit} lavori già attivi. Riprovare quando si libera un posto.')
 
 
-def mutate(job_id, callback):
+def mutate(job_id, callback, *, context=False):
     with locked() as (directory, data):
         job = data['jobs'][job_id]
         before = job['stage']
-        callback(job)
+        if context:
+            callback(job, directory, data['jobs'])
+        else:
+            callback(job)
         capacity(data['jobs'], job, job['stage'], before)
         stamp(job)
         save(directory, data)
@@ -122,14 +126,15 @@ def add(args):
         raise ValueError('ID atteso: 1–64 lettere minuscole ASCII, cifre, trattini o underscore')
     if not args.title.strip():
         raise ValueError('Titolo vuoto')
+    design_only = args.design_only or args.proposal
     dependencies = sorted(set(args.after))
     with locked() as (directory, data):
         jobs = data['jobs']
         if key in jobs:
             existing = jobs[key]
-            if (existing['title'], existing['intake'], existing['design_only'], existing['after']) != (
-                args.title, args.note, args.design_only, dependencies
-            ) or existing.get('base_ref', 'HEAD') != args.base or bool(existing.get('bug')) != args.bug:
+            original = (existing['title'], existing['intake'], existing['design_only'], existing['after'],
+                        existing.get('base_ref', 'HEAD'), bool(existing.get('bug')), bool(existing.get('proposal_requested')))
+            if original != (args.title, args.note, design_only, dependencies, args.base, args.bug, args.proposal):
                 raise ValueError('ID già usato con altri dati. Se è lo stesso lavoro, riprenderlo con show/claim.')
             return existing
         if set(dependencies) - jobs.keys():
@@ -144,8 +149,10 @@ def add(args):
         start_dir = str(directory / 'trees' / key) if is_git else str(directory.parent)
         job = dict(id=key, title=args.title, stage='queued', note=args.note, intake=args.note,
                    base=base, base_ref=args.base, worktree=start_dir, branch='factory/' + key if is_git else '',
-                   worker='', feedback_from=None, design_only=args.design_only, after=dependencies, history=[],
+                   worker='', feedback_from=None, design_only=design_only, after=dependencies, history=[],
                    require_intake=True, require_reviewer_agent=True, bug=args.bug)
+        if args.proposal:
+            job['proposal_requested'] = True
         jobs[key] = job
         stamp(job)
         save(directory, data)
@@ -276,6 +283,69 @@ def intake(args):
     return mutate(args.id, record)
 
 
+def ask_decision(job, key, question):
+    if not key.strip() or not question.strip():
+        raise ValueError('Servono una chiave stabile e una domanda.')
+    decisions = job.setdefault('decisions', [])
+    prior = next((item for item in decisions if item['key'] == key), None)
+    if prior:
+        if prior['question'] != question:
+            raise ValueError('Chiave già associata a una domanda diversa.')
+        return False
+    if job['stage'] not in {'design', 'build'}:
+        raise ValueError('Aprire la decisione durante analisi o sviluppo.')
+    ref = uuid.uuid4().hex
+    decisions.append(dict(key=key, ref=ref, question=question, from_stage=job['stage']))
+    job.update(stage='feedback', feedback_from=job['stage'], decision_wait=ref, note=question)
+    return True
+
+
+def answer_decision(jobs, job, ref, answer):
+    decisions = job.get('decisions') or []
+    if not answer.strip() or not decisions or decisions[-1]['ref'] != ref:
+        raise ValueError('Servono la risposta e il riferimento alla domanda corrente.')
+    decision = decisions[-1]
+    recorded = 'answer' in decision
+    if recorded and decision['answer'] != answer:
+        raise ValueError('Risposta già registrata con contenuto diverso.')
+    if job.get('decision_wait') != ref:
+        if recorded:
+            return False
+        raise ValueError('La domanda non è più aperta.')
+    if job['stage'] != 'feedback' or job['feedback_from'] != decision['from_stage']:
+        raise ValueError('Stato della domanda cambiato, rileggere il lavoro.')
+    decision['answer'] = answer
+    try:
+        capacity(jobs, job, decision['from_stage'], 'feedback')
+    except ValueError as error:
+        # La risposta resta acquisita mentre un altro job occupa il posto.
+        note = f"Risposta acquisita. {error}"
+        changed = not recorded or job['note'] != note
+        job['note'] = note
+        return changed
+    job.update(stage=decision['from_stage'], feedback_from=None, note=answer)
+    del job['decision_wait']
+    return True
+
+
+def project_decision(args):
+    with locked() as (directory, data):
+        jobs = data['jobs']
+        job = jobs[args.id]
+        if not job.get('worker') or args.worker != job['worker']:
+            raise ValueError('Serve il titolare attuale del lavoro.')
+        if (job.get('delivery') or {}).get('status') == 'waiting':
+            raise ValueError('Usare il flusso di approvazione della consegna.')
+        if args.cmd == 'ask':
+            changed = ask_decision(job, args.key.strip(), args.question.strip())
+        else:
+            changed = answer_decision(jobs, job, args.ref, args.answer.strip())
+        if changed:
+            stamp(job)
+            save(directory, data)
+        return job
+
+
 def publication_step(job, sha):
     """Resolve the next local action against the approved, published revision."""
     receipt = job.get('ci') or {}
@@ -295,12 +365,16 @@ def publication_step(job, sha):
 
 
 def move(args):
-    def advance(job):
+    def advance(job, directory, jobs):
         old, target = job['stage'], args.stage
         if not job['worker'] or job['worker'] != args.worker or old in TERMINAL:
             raise ValueError('Verificare titolare e stato del lavoro')
         if target in {'feedback', 'ko'} and not args.note.strip():
             raise ValueError('Indicare la domanda o il motivo con --note')
+        if old == 'feedback' and job.get('decision_wait'):
+            if target != 'ko':
+                raise ValueError('Registrare la risposta alla domanda con answer.')
+            del job['decision_wait']
         if old == 'feedback' and target != 'ko':
             if job.get('delivery', {}).get('status') == 'waiting':
                 raise ValueError('Usare il flusso di approvazione della consegna')
@@ -317,6 +391,12 @@ def move(args):
             reviews = job.get('intake_reviews', [])
             if not reviews or reviews[-1]['decision'] != 'accept':
                 raise ValueError('Serve la presa in carico accettata da un agente dedicato.')
+        if old == 'design' and target == 'ok' and (job.get('proposal_requested') or job.get('proposal')):
+            from proposal import require_report
+            require_report(directory, job)
+        if old == 'design' and target == 'build' and job.get('after'):
+            from proposal import require_current
+            require_current(directory, jobs, job)
         integration = args.integrated is not None or args.target_ref is not None
         if integration and (old, target) != ('ready', 'ok'):
             raise ValueError('Registrare il risultato del merge solo chiudendo il lavoro verificato')
@@ -329,7 +409,7 @@ def move(args):
                 record_integration(job, args.integrated, args.target_ref)
         job['feedback_from'] = old if target == 'feedback' else None
         job['stage'], job['note'] = target, args.note
-    return mutate(args.id, advance)
+    return mutate(args.id, advance, context=True)
 
 
 def main():
@@ -340,6 +420,7 @@ def main():
     new.add_argument('title')
     new.add_argument('--note', default='')
     new.add_argument('--design-only', action='store_true')
+    new.add_argument('--proposal', action='store_true', help='Proposta senza sviluppo, con rapporto e stato della verifica')
     new.add_argument('--bug', action='store_true', help='Fix che richiede la riprova del caso originale')
     new.add_argument('--require-intake', action='store_true', help='Compatibilità: già obbligatorio per i nuovi lavori')
     new.add_argument('--base', default='HEAD', help='Riferimento Git di partenza')
@@ -360,6 +441,16 @@ def main():
     triage.add_argument('--evidence', required=True)
     triage.add_argument('--example', help='Input o passi originali per riprodurre il problema')
     triage.add_argument('--expected', help='Risultato atteso in un formato direttamente confrontabile')
+    ask = commands.add_parser('ask', help='Aprire una decisione di progetto')
+    ask.add_argument('id')
+    ask.add_argument('worker')
+    ask.add_argument('key', help='Chiave stabile per questa domanda nel job')
+    ask.add_argument('question')
+    answer = commands.add_parser('answer', help='Rispondere a una specifica decisione')
+    answer.add_argument('id')
+    answer.add_argument('worker')
+    answer.add_argument('ref', help='Riferimento univoco restituito da ask')
+    answer.add_argument('answer')
     replay = commands.add_parser('replay')
     replay.add_argument('id')
     replay.add_argument('worker')
@@ -384,6 +475,8 @@ def main():
         result = claim(args)
     elif args.cmd == 'intake':
         result = intake(args)
+    elif args.cmd in {'ask', 'answer'}:
+        result = project_decision(args)
     elif args.cmd == 'replay':
         from replay import record
         result = record(args)

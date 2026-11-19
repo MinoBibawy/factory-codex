@@ -1,6 +1,6 @@
 {
   "name": "factory",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Coordina sviluppo, test, audit e revisione dei lavori dalla chat del progetto.",
   "skills": "./skills/",
   "requires_local_executor": true,
