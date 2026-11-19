@@ -22,6 +22,12 @@ Factory replies in your preferred language. If you have not set a preference, it
                  |
                  v
 +----------------------------------+       +-------------------------+
+| What did the user ask for?       |------>| Diagnose or propose     |
+| Fix or implement: continue below.|       | Deliver analysis.md and |
++----------------------------------+       | stop before development.|
+                 |                         +-------------------------+
+                 v
++----------------------------------+       +-------------------------+
 | Does the change need a design    |--yes->| Elephant Goldfish       |
 | decision?                        |       | Draft and independently |
 +----------------------------------+       | review the spec.        |
@@ -95,10 +101,14 @@ Factory interprets `/factory` in the message. If your client does not select the
 
 | Request | What Factory does |
 | --- | --- |
+| Analyze or diagnose | Factory Analysis checks the code, versioned documentation and available project decisions. It returns the diagnosis, evidence and limits in the dashboard. |
+| Find a solution | Adds a recommended change, meaningful alternatives and a verification case. To implement the proposal later, ask Factory to fix the issue. The developer reuses the analysis. |
 | Bug fix or regression | Uses Poteto for intake and diagnosis and Ponytail during implementation. Runs project tests and independent reviews. For a small change, focuses frontend and backend checks on the affected layers. |
 | Change with open design questions | Uses the relevant Compound Engineering stages. When a change needs a decision about behavior across components, public contracts, or persistent data, Elephant Goldfish (EGM) reviewers check the specification before implementation. |
 | Pull request draft | Writes a local summary with before-and-after evidence, merge risk, and reversibility. The draft is available from the dashboard. |
 | Remote delivery | Shows the repository, source and target branches, and exact commit before asking for approval. GitHub CI requires an authenticated `gh` client with read access. Other providers need an equivalent source of check results. |
+
+For example, use `/factory analyze` for a diagnosis, `/factory find a solution` for a proposal, or `/factory fix it` to authorize local implementation. The intake agent can consult your project’s Obsidian vault when configured and accessible. Independent specialists can check code, contracts and project decisions in parallel. For high-risk conclusions a reviewer challenges the evidence before handoff.
 
 ## Data and permissions
 

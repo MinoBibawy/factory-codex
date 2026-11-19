@@ -1,0 +1,5 @@
+interface:
+  display_name: "Factory Analysis"
+  short_description: "Diagnose an issue and compare solutions"
+policy:
+  allow_implicit_invocation: false
